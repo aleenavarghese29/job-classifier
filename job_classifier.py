@@ -6,8 +6,8 @@ import time
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import normalize
 from sklearn.cluster import KMeans
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
+#from selenium import webdriver
+#from selenium.webdriver.chrome.service import Service
 import joblib
 import os
 from datetime import datetime
@@ -18,11 +18,12 @@ os.makedirs("results", exist_ok=True)
 # 1. Scrape jobs from karkidi.com
 
 def scrape_karkidi_jobs(keyword="data science", pages=1):
-    # ... your scraping code ...
-    service = Service(r'G:\WebDriver\chromedriver.exe')
-    options = webdriver.ChromeOptions()
-    driver = webdriver.Chrome(service=service, options=options)
-    
+    base_url = "https://karkidi.com/jobs/search?query={query}&page={page}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    }
+    jobs_list = []
+
     for page in range(1, pages + 1):
         url = base_url.format(page=page, query=keyword.replace(' ', '%20'))
         print(f"🔍 Scraping page {page} for keyword '{keyword}' ...")
@@ -52,19 +53,28 @@ def scrape_karkidi_jobs(keyword="data science", pages=1):
             except Exception as e:
                 print(f"⚠️ Error parsing a job: {e}")
                 continue
-        time.sleep(1)  # polite delay
 
-   
     return pd.DataFrame(jobs_list)
-
 # 2. Preprocess skills column and vectorize
-def preprocess_skills(df):
-    df = df.copy()
-    df["Skills"] = df["Skills"].fillna("").str.lower()
-    vectorizer = TfidfVectorizer(token_pattern=r"(?u)\b\w+\b", stop_words="english")
-    X = vectorizer.fit_transform(df["Skills"])
-    return normalize(X), vectorizer
 
+
+def preprocess_skills(df):
+    # Ensure "Skills" column exists and is preprocessed
+    if "Skills" not in df.columns:
+        raise ValueError("The DataFrame does not contain a 'Skills' column.")
+    
+    df["Skills"] = df["Skills"].fillna("unknown").replace("", "unknown")
+    df = df[df["Skills"].str.strip().astype(bool)]  # Remove rows with empty strings
+    
+    # Check for valid documents
+    if df["Skills"].str.strip().astype(bool).sum() == 0:
+        raise ValueError("No valid documents in the 'Skills' column for vectorization.")
+    
+    # Initialize TfidfVectorizer and transform
+    vectorizer = TfidfVectorizer(stop_words="english", max_features=1000)
+    X = vectorizer.fit_transform(df["Skills"])
+    
+    return X, vectorizer
 # 3. Cluster skills with KMeans
 def cluster_skills(X, n_clusters=5):
     model = KMeans(n_clusters=n_clusters, random_state=42)
