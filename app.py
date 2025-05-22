@@ -3,7 +3,7 @@
 import streamlit as st
 import pandas as pd
 import joblib
-from job_recommender import scrape_karkidi_jobs, classify_new_jobs, notify_user
+from job_classifier import scrape_karkidi_jobs, classify_new_jobs, notify_user
 from datetime import datetime
 from sklearn.preprocessing import normalize
 
